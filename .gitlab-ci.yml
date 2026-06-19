@@ -1,0 +1,11 @@
+# Benchmark CI — orchestrator. All jobs are manually triggered.
+# Part of the Guidepoint AppSec Tool Benchmarking program (Phase 1).
+
+include:
+  - local: .gitlab/ci/appsec-semgrep.yml
+  - local: .gitlab/ci/appsec-snyk.yml
+  - local: .gitlab/ci/appsec-checkmarx.yml
+  - local: .gitlab/ci/appsec-veracode.yml
+  - local: .gitlab/ci/appsec-polaris.yml
+  - local: .gitlab/ci/appsec-qwiet.yml
+  - local: .gitlab/ci/appsec-mend.yml

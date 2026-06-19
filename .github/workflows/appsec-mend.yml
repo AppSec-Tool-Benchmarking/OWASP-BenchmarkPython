@@ -1,0 +1,55 @@
+# Benchmark scan — manual trigger only. No auto-runs, no PR decoration, no pipeline failures.
+# Part of the Guidepoint AppSec Tool Benchmarking program (Phase 1).
+
+name: "AppSec Benchmark — Mend [OWASP-BenchmarkPython]"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mend:
+    name: Mend SCA Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Create results directory
+        run: mkdir -p results/mend
+
+      - name: Download Mend Unified Agent
+        run: curl -fsSL https://unified-agent.s3.amazonaws.com/wss-unified-agent.jar -o wss-unified-agent.jar
+
+      - name: Run Mend Unified Agent scan
+        run: |
+          java -jar wss-unified-agent.jar \
+            -apiKey "$MEND_USER_KEY" \
+            -userKey "$MEND_USER_KEY" \
+            -productName "AppSec-Benchmark" \
+            -projectName "owasp-benchmarkpython-benchmark" \
+            -d . \
+            -noConfig true \
+            -offline false \
+            -failErrorLevel "none" \
+            -generateProjectDetailsJson true \
+            -reportDir results/mend/ || true
+        continue-on-error: true
+        env:
+          MEND_EMAIL: ${{ secrets.MEND_EMAIL }}
+          MEND_USER_KEY: ${{ secrets.MEND_USER_KEY }}
+
+      - name: Upload Mend results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mend-results
+          path: results/mend/
+          if-no-files-found: warn

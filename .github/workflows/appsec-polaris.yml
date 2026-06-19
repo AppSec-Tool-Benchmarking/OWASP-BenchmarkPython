@@ -1,0 +1,44 @@
+# Benchmark scan — manual trigger only. No auto-runs, no PR decoration, no pipeline failures.
+# Part of the Guidepoint AppSec Tool Benchmarking program (Phase 1).
+
+name: "AppSec Benchmark — Polaris [OWASP-BenchmarkPython]"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  polaris:
+    name: Polaris SAST Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create results directory
+        run: mkdir -p results/polaris
+
+      - name: Run Polaris scan
+        uses: synopsys-sig/synopsys-action@v1
+        continue-on-error: true
+        env:
+          POLARIS_SERVER_URL: ${{ secrets.POLARIS_SERVER_URL }}
+          POLARIS_ACCESS_TOKEN: ${{ secrets.POLARIS_ACCESS_TOKEN }}
+        with:
+          polaris_server_url: ${{ secrets.POLARIS_SERVER_URL }}
+          polaris_access_token: ${{ secrets.POLARIS_ACCESS_TOKEN }}
+          polaris_assessment_types: "SAST"
+          polaris_project_name: "owasp-benchmarkpython-benchmark"
+          polaris_branch_name: ${{ github.ref_name }}
+          output_file: "results/polaris/polaris-results.json"
+          fail_on_error: false
+
+      - name: Upload Polaris results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: polaris-results
+          path: results/polaris/
+          if-no-files-found: warn

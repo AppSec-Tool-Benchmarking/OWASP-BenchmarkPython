@@ -1,0 +1,40 @@
+# Benchmark scan — manual trigger only. No auto-runs, no PR decoration, no pipeline failures.
+# Part of the Guidepoint AppSec Tool Benchmarking program (Phase 1).
+
+name: "AppSec Benchmark — Qwiet [OWASP-BenchmarkPython]"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qwiet:
+    name: Qwiet (ShiftLeft) SAST Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create results directory
+        run: mkdir -p results/qwiet
+
+      - name: Run Qwiet scan
+        uses: ShiftLeftSecurity/scan-action@v1
+        continue-on-error: true
+        env:
+          SHIFTLEFT_ACCESS_TOKEN: ${{ secrets.SHIFTLEFT_ACCESS_TOKEN }}
+          SCAN_TYPE: python
+          WORKSPACE: ""
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          output: results/qwiet/
+
+      - name: Upload Qwiet results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qwiet-results
+          path: results/qwiet/
+          if-no-files-found: warn

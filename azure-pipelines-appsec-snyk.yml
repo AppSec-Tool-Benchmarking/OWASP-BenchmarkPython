@@ -1,0 +1,44 @@
+# Benchmark scan — manual trigger only. No auto-runs, no PR decoration, no pipeline failures.
+# Part of the Guidepoint AppSec Tool Benchmarking program (Phase 1).
+# Register this file as a separate Azure Pipeline in Azure DevOps.
+
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - task: NodeTool@0
+    displayName: "Install Node.js 18"
+    inputs:
+      versionSpec: "18.x"
+
+  - script: mkdir -p results/snyk
+    displayName: "Create results directory"
+
+  - script: npm install -g snyk
+    displayName: "Install Snyk CLI"
+
+  - script: |
+      snyk code test --sarif-file-output=results/snyk/snyk-code.sarif --severity-threshold=low || true
+    displayName: "AppSec Benchmark — Snyk Code [OWASP-BenchmarkPython]"
+    continueOnError: true
+    env:
+      SNYK_TOKEN: $(AZ_SNYK_TOKEN)
+
+  - script: |
+      snyk test --json-file-output=results/snyk/snyk-opensource.json --severity-threshold=low || true
+    displayName: "AppSec Benchmark — Snyk Open Source [OWASP-BenchmarkPython]"
+    continueOnError: true
+    env:
+      SNYK_TOKEN: $(AZ_SNYK_TOKEN)
+
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    inputs:
+      pathToPublish: results/snyk/
+      artifactName: snyk-results

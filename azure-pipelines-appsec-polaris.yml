@@ -1,0 +1,46 @@
+# Benchmark scan — manual trigger only. No auto-runs, no PR decoration, no pipeline failures.
+# Part of the Guidepoint AppSec Tool Benchmarking program (Phase 1).
+# Register this file as a separate Azure Pipeline in Azure DevOps.
+
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - script: mkdir -p results/polaris
+    displayName: "Create results directory"
+
+  - script: |
+      curl -LO "$(AZ_POLARIS_SERVER_URL)/api/tools/polaris_cli-linux64.zip"
+      unzip -o polaris_cli-linux64.zip
+      chmod +x polaris
+      sudo mv polaris /usr/local/bin/polaris
+    displayName: "Download Polaris CLI"
+    env:
+      POLARIS_SERVER_URL: $(AZ_POLARIS_SERVER_URL)
+      POLARIS_ACCESS_TOKEN: $(AZ_POLARIS_ACCESS_TOKEN)
+
+  - script: |
+      polaris configure \
+        --url "$(AZ_POLARIS_SERVER_URL)" \
+        --token "$(AZ_POLARIS_ACCESS_TOKEN)"
+      polaris analyze \
+        --project-name "OWASP-BenchmarkPython-benchmark" \
+        --branch main \
+        --outdir results/polaris/ || true
+    displayName: "AppSec Benchmark — Polaris [OWASP-BenchmarkPython]"
+    continueOnError: true
+    env:
+      POLARIS_SERVER_URL: $(AZ_POLARIS_SERVER_URL)
+      POLARIS_ACCESS_TOKEN: $(AZ_POLARIS_ACCESS_TOKEN)
+
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    inputs:
+      pathToPublish: results/polaris/
+      artifactName: polaris-results

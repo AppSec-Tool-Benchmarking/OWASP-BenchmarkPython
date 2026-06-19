@@ -1,0 +1,21 @@
+# Benchmark scan — manual trigger only. No auto-runs, no MR decoration, no pipeline failures.
+
+appsec-qwiet:
+  stage: test
+  image: shiftleft/scan-slim:latest
+  when: manual
+  allow_failure: true
+  variables:
+    SHIFTLEFT_ACCESS_TOKEN: $CI_SHIFTLEFT_ACCESS_TOKEN
+  script:
+    - mkdir -p results/qwiet
+    - sl analyze --app OWASP-BenchmarkPython --tag branch=$CI_COMMIT_BRANCH . || true
+    - |
+      if ls reports/ > /dev/null 2>&1; then
+        cp -r reports/ results/qwiet/ || true
+      fi
+  artifacts:
+    when: always
+    paths:
+      - results/qwiet/
+    expire_in: 30 days

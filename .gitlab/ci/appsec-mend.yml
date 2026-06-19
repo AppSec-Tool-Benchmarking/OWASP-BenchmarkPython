@@ -1,0 +1,22 @@
+# Benchmark scan — manual trigger only. No auto-runs, no MR decoration, no pipeline failures.
+
+appsec-mend:
+  stage: test
+  image: python:3.11
+  when: manual
+  allow_failure: true
+  variables:
+    MEND_EMAIL: $CI_MEND_EMAIL
+    MEND_USER_KEY: $CI_MEND_USER_KEY
+  script:
+    - apt-get update -qq && apt-get install -y -qq curl default-jre-headless
+    - mkdir -p results/mend
+    - curl -LJO https://unified-agent.s3.amazonaws.com/wss-unified-agent.jar
+    - java -jar wss-unified-agent.jar -failErrorLevel none || true
+    - find . -name "whitesource" -type d -exec cp -r {} results/mend/ \; 2>/dev/null || true
+    - find . -name "*.json" -path "*/whitesource/*" -exec cp {} results/mend/ \; 2>/dev/null || true
+  artifacts:
+    when: always
+    paths:
+      - results/mend/
+    expire_in: 30 days

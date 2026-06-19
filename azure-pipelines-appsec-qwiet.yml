@@ -1,0 +1,42 @@
+# Benchmark scan — manual trigger only. No auto-runs, no PR decoration, no pipeline failures.
+# Part of the Guidepoint AppSec Tool Benchmarking program (Phase 1).
+# Register this file as a separate Azure Pipeline in Azure DevOps.
+
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - script: mkdir -p results/qwiet
+    displayName: "Create results directory"
+
+  - script: |
+      curl -LO https://cdn.shiftleft.io/download/sl
+      chmod +x sl
+      sudo mv sl /usr/local/bin/sl
+    displayName: "Install Qwiet (ShiftLeft) CLI"
+
+  - script: |
+      sl analyze --app OWASP-BenchmarkPython . || true
+    displayName: "AppSec Benchmark — Qwiet [OWASP-BenchmarkPython]"
+    continueOnError: true
+    env:
+      SHIFTLEFT_ACCESS_TOKEN: $(AZ_SHIFTLEFT_ACCESS_TOKEN)
+
+  - script: |
+      sl export --app OWASP-BenchmarkPython --outfile results/qwiet/qwiet-results.json || true
+    displayName: "Export Qwiet results [OWASP-BenchmarkPython]"
+    continueOnError: true
+    env:
+      SHIFTLEFT_ACCESS_TOKEN: $(AZ_SHIFTLEFT_ACCESS_TOKEN)
+
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    inputs:
+      pathToPublish: results/qwiet/
+      artifactName: qwiet-results

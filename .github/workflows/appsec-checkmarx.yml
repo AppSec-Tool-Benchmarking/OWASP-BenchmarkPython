@@ -1,0 +1,44 @@
+# Benchmark scan — manual trigger only. No auto-runs, no PR decoration, no pipeline failures.
+# Part of the Guidepoint AppSec Tool Benchmarking program (Phase 1).
+
+name: "AppSec Benchmark — Checkmarx [OWASP-BenchmarkPython]"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checkmarx:
+    name: Checkmarx SAST Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create results directory
+        run: mkdir -p results/checkmarx
+
+      - name: Run Checkmarx scan
+        uses: checkmarx/ast-github-action@main
+        continue-on-error: true
+        with:
+          base_uri: ${{ secrets.CX_BASE_URI }}
+          cx_tenant: ${{ secrets.CX_TENANT }}
+          cx_client_id: ${{ secrets.CX_CLIENT_ID }}
+          cx_client_secret: ${{ secrets.CX_CLIENT_SECRET }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          project_name: "owasp-benchmarkpython-benchmark"
+          scan_types: "sast"
+          output_path: "results/checkmarx/"
+          output_format: "sarif"
+          async: "false"
+          pr_decoration_enabled: "false"
+
+      - name: Upload Checkmarx results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: checkmarx-results
+          path: results/checkmarx/

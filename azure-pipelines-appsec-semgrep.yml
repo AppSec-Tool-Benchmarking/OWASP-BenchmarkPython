@@ -1,0 +1,33 @@
+# Benchmark scan — manual trigger only. No auto-runs, no PR decoration, no pipeline failures.
+# Part of the Guidepoint AppSec Tool Benchmarking program (Phase 1).
+# Register this file as a separate Azure Pipeline in Azure DevOps.
+
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - task: UsePythonVersion@0
+    displayName: "Use Python 3.11"
+    inputs:
+      versionSpec: "3.11"
+
+  - script: mkdir -p results/semgrep
+    displayName: "Create results directory"
+
+  - script: |
+      pip install semgrep
+      semgrep scan --config auto --sarif --output results/semgrep/semgrep.sarif . || true
+    displayName: "AppSec Benchmark — Semgrep [OWASP-BenchmarkPython]"
+    continueOnError: true
+
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    inputs:
+      pathToPublish: results/semgrep/
+      artifactName: semgrep-results

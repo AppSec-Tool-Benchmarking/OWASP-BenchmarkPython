@@ -1,0 +1,50 @@
+# Benchmark scan — manual trigger only. No auto-runs, no PR decoration, no pipeline failures.
+# Part of the Guidepoint AppSec Tool Benchmarking program (Phase 1).
+# Register this file as a separate Azure Pipeline in Azure DevOps.
+
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - task: JavaToolInstaller@0
+    displayName: "Install JDK 17 (required for Mend JAR)"
+    inputs:
+      versionSpec: "17"
+      jdkArchitectureOption: x64
+      jdkSourceOption: PreInstalled
+
+  - script: mkdir -p results/mend
+    displayName: "Create results directory"
+
+  - script: |
+      curl -LJO https://unified-agent.s3.amazonaws.com/wss-unified-agent.jar
+    displayName: "Download Mend Unified Agent"
+
+  - script: |
+      java -jar wss-unified-agent.jar -failErrorLevel none || true
+    displayName: "AppSec Benchmark — Mend [OWASP-BenchmarkPython]"
+    continueOnError: true
+    env:
+      MEND_EMAIL: $(AZ_MEND_EMAIL)
+      MEND_USER_KEY: $(AZ_MEND_USER_KEY)
+      WS_PROJECTNAME: OWASP-BenchmarkPython-benchmark
+      WS_FILESYSTEMSCAN: true
+      WS_SCANREPORTFILENANME: results/mend/mend-results.json
+
+  - script: |
+      find . -name "whitesource" -type d -exec cp -r {} results/mend/ \; 2>/dev/null || true
+      find . -name "*.json" -path "*/whitesource/*" -exec cp {} results/mend/ \; 2>/dev/null || true
+    displayName: "Collect Mend output files"
+    continueOnError: true
+
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    inputs:
+      pathToPublish: results/mend/
+      artifactName: mend-results

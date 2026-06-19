@@ -1,0 +1,140 @@
+# Benchmark scan — manual trigger only. No auto-runs, no PR decoration, no pipeline failures.
+# Part of the Guidepoint AppSec Tool Benchmarking program (Phase 1).
+# All pipelines are under 'custom:' and must be triggered manually from the Pipelines UI.
+
+image: ubuntu:22.04
+
+pipelines:
+  custom:
+    appsec-semgrep:
+      - step:
+          name: "AppSec Benchmark — Semgrep"
+          image: semgrep/semgrep:latest
+          script:
+            - mkdir -p results/semgrep
+            - semgrep scan --config auto --sarif --output results/semgrep/semgrep.sarif . || true
+          artifacts:
+            - results/semgrep/**
+
+    appsec-snyk-code:
+      - step:
+          name: "AppSec Benchmark — Snyk Code (SAST)"
+          image: python:3.11
+          script:
+            - apt-get update -qq && apt-get install -y curl
+            - curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+            - apt-get install -y nodejs
+            - npm install -g snyk
+            - snyk auth $BB_SNYK_TOKEN
+            - mkdir -p results/snyk
+            - snyk code test --sarif-file-output=results/snyk/snyk-code.sarif --severity-threshold=low || true
+          artifacts:
+            - results/snyk/**
+
+    appsec-snyk-opensource:
+      - step:
+          name: "AppSec Benchmark — Snyk Open Source (SCA)"
+          image: python:3.11
+          script:
+            - apt-get update -qq && apt-get install -y curl
+            - curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+            - apt-get install -y nodejs
+            - npm install -g snyk
+            - snyk auth $BB_SNYK_TOKEN
+            - mkdir -p results/snyk
+            - snyk test --json-file-output=results/snyk/snyk-opensource.json --severity-threshold=low || true
+          artifacts:
+            - results/snyk/**
+
+    appsec-checkmarx:
+      - step:
+          name: "AppSec Benchmark — Checkmarx One"
+          image: ubuntu:22.04
+          script:
+            - apt-get update -qq && apt-get install -y curl unzip
+            - curl -L https://github.com/Checkmarx/ast-cli/releases/latest/download/ast-cli_linux_x64.tar.gz -o cx.tar.gz
+            - tar -xzf cx.tar.gz && mv cx /usr/local/bin/cx
+            - mkdir -p results/checkmarx
+            - cx scan create
+                --scan-types sast
+                --project-name "OWASP-BenchmarkPython-benchmark"
+                --base-uri "$BB_CX_BASE_URI"
+                --tenant "$BB_CX_TENANT"
+                --client-id "$BB_CX_CLIENT_ID"
+                --client-secret "$BB_CX_CLIENT_SECRET"
+                --output-path results/checkmarx/
+                --output-name checkmarx
+                --report-format sarif
+                --source . || true
+          artifacts:
+            - results/checkmarx/**
+
+    appsec-veracode:
+      - step:
+          name: "AppSec Benchmark — Veracode Pipeline Scan"
+          image: ubuntu:22.04
+          script:
+            - apt-get update -qq && apt-get install -y curl unzip default-jre
+            - curl -sSO https://downloads.veracode.com/securityscan/pipeline-scan-LATEST.zip
+            - unzip -o pipeline-scan-LATEST.zip pipeline-scan.jar
+            - mkdir -p results/veracode
+            - java -jar pipeline-scan.jar
+                --veracode_api_id "$BB_VERACODE_API_ID"
+                --veracode_api_key "$BB_VERACODE_API_KEY"
+                --fail_on_severity ""
+                --file .
+                --json_output_file results/veracode/veracode-results.json || true
+          artifacts:
+            - results/veracode/**
+
+    appsec-polaris:
+      - step:
+          name: "AppSec Benchmark — Polaris (Coverity)"
+          image: ubuntu:22.04
+          script:
+            - apt-get update -qq && apt-get install -y curl
+            - curl -fsSLo polaris "${BB_POLARIS_SERVER_URL}/api/tools/polaris_cli-linux64"
+            - chmod +x polaris && mv polaris /usr/local/bin/polaris
+            - mkdir -p results/polaris
+            - polaris analyze
+                --polaris.url "$BB_POLARIS_SERVER_URL"
+                --polaris.access.token "$BB_POLARIS_ACCESS_TOKEN"
+                --outputDirectory results/polaris/ || true
+          artifacts:
+            - results/polaris/**
+
+    appsec-qwiet:
+      - step:
+          name: "AppSec Benchmark — Qwiet AI"
+          image: shiftleft/scan-slim:latest
+          script:
+            - mkdir -p results/qwiet
+            - sl analyze
+                --app OWASP-BenchmarkPython
+                --tag branch=$BITBUCKET_BRANCH
+                --python
+                --output-format sarif
+                --output-file results/qwiet/qwiet.sarif
+                . || true
+          artifacts:
+            - results/qwiet/**
+
+    appsec-mend:
+      - step:
+          name: "AppSec Benchmark — Mend SCA"
+          image: maven:3.9-eclipse-temurin-17
+          script:
+            - apt-get update -qq && apt-get install -y curl
+            - curl -fsSLo wss-unified-agent.jar https://unified-agent.s3.amazonaws.com/wss-unified-agent.jar
+            - mkdir -p results/mend
+            - java -jar wss-unified-agent.jar
+                -apiKey "$BB_MEND_USER_KEY"
+                -userKey "$BB_MEND_USER_KEY"
+                -email "$BB_MEND_EMAIL"
+                -project OWASP-BenchmarkPython-benchmark
+                -d .
+                -failErrorLevel none
+                -reports true
+                -reportDirectory results/mend/ || true
+          artifacts:
+            - results/mend/**

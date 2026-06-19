@@ -1,0 +1,15 @@
+# Benchmark scan — manual trigger only. No auto-runs, no MR decoration, no pipeline failures.
+
+appsec-semgrep:
+  stage: test
+  image: semgrep/semgrep:latest
+  when: manual
+  allow_failure: true
+  script:
+    - mkdir -p results/semgrep
+    - semgrep scan --config auto --sarif --output results/semgrep/semgrep.sarif . || true
+  artifacts:
+    when: always
+    paths:
+      - results/semgrep/
+    expire_in: 30 days
